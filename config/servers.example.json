@@ -1,0 +1,22 @@
+{
+  "servers": [
+    {
+      "id": "hub",
+      "label": "Hub VPS",
+      "kind": "hub",
+      "host": "203.0.113.10",
+      "port": 22,
+      "username": "deploy",
+      "privateKeyPath": "C:/Users/example/.ssh/deploy_key"
+    },
+    {
+      "id": "acp",
+      "label": "ACP VPS",
+      "kind": "acp",
+      "host": "203.0.113.20",
+      "port": 22,
+      "username": "deploy",
+      "privateKeyPath": "C:/Users/example/.ssh/deploy_key"
+    }
+  ]
+}

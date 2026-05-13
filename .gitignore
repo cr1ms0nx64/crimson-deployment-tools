@@ -1,0 +1,30 @@
+# Local runtime state
+logs/
+backups/
+runtime/
+config/servers.json
+config/deploy-state.json
+config/server-health.json
+
+# Build outputs and caches
+bin/
+obj/
+out/
+publish/
+dist/
+Debug/
+Release/
+*.tmp
+*.temp
+
+# Go local/cache artifacts
+*.test
+coverage.out
+
+# Editor/OS files
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+desktop.ini

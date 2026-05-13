@@ -1,0 +1,11 @@
+Crimson Deploy Tool 1.0.1 Testplan
+
+1. Update von 1.0.0 auf 1.0.1 installieren.
+2. App starten und prüfen, dass im Log Crimson Deploy Tool WPF 1.0.1 gestartet steht.
+3. Prüfen, dass keine Warnung zur Rekonstruktion des Deploy Verlaufs erscheint.
+4. Online Status prüfen und Zusammenfassung prüfen. Erwartet: 2 Server geprüft.
+5. Lokales Config Backup erstellen.
+6. Preflight Hub prüfen.
+7. Preflight ACP prüfen.
+8. ACP Deploy mit SemVer Paket testen.
+9. App neu starten und Deploy State prüfen.

@@ -1,0 +1,15 @@
+{
+  "name": "Crimson Deploy Tool",
+  "version": "1.0.1",
+  "build": "2026.05.12.1001-stable-fix",
+  "minUpdaterVersion": 1,
+  "preserve": [
+    "config/servers.json",
+    "config/deploy-state.json",
+    "config/app-settings.json",
+    "config/server-health.json",
+    "logs/",
+    "backups/"
+  ],
+  "restart": "Crimson Deploy Tool.exe"
+}
