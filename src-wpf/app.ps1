@@ -705,17 +705,17 @@ function Redact-SensitiveText([string]$text) {
   if ($null -eq $text) { return '' }
   $safe = [string]$text
   try {
-    $safe = [regex]::Replace($safe, '(?i)(secret(?:key)?|minioSecretKey|accessSecret|password|token)\s*[:=]\s*([^\s;,]+)', '$1=********')
-    $safe = [regex]::Replace($safe, '(?i)(access(?:key)?|minioAccessKey)\s*[:=]\s*([A-Za-z0-9_\-]{8,})', '$1=********')
     $safe = [regex]::Replace($safe, '(?i)(Authorization:\s*)(AWS4-HMAC-SHA256|Bearer|Basic)\s+[^\r\n]+', '$1$2 ********')
+    $safe = [regex]::Replace($safe, '(?i)\b(Bearer|Basic)\s+[A-Za-z0-9+/_=.\-]+', '$1 ********')
+    $safe = [regex]::Replace($safe, '(?i)(["'']?(?:Authorization|secret(?:key)?|minioSecretKey|accessSecret|password|api[-_ ]?token|token|api[-_ ]?key|access(?:key)?|minioAccessKey|privateKey)["'']?\s*[:=]\s*)(?:"[^"\r\n]*"|''[^''\r\n]*''|[^\s;,]+)', '$1"********"')
     $safe = [regex]::Replace($safe, '(?i)(X-Amz-Signature=)[0-9a-f]+', '$1********')
     $safe = [regex]::Replace($safe, '(?i)(X-Amz-Credential=)[^&\s]+', '$1********')
-  } catch {}
+  } catch { return '[redaction failed]' }
   return $safe
 }
 
 function Write-AppLog([string]$text) {
-  $line = $text -replace "`r", ''
+  $line = (Redact-SensitiveText $text) -replace "`r", ''
   Write-Utf8Line $script:LogFile ('[' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff') + '] ' + $line)
 }
 
@@ -2404,7 +2404,7 @@ function Mask-SecretValue([string]$value, [bool]$full = $false) {
 
 function Write-RedactedJsonFile($obj, [string]$path) {
   try {
-    $json = ($obj | ConvertTo-Json -Depth 12)
+    $json = Redact-SensitiveText ($obj | ConvertTo-Json -Depth 12)
     [System.IO.File]::WriteAllText($path, $json, $script:Utf8NoBom)
   } catch {}
 }
@@ -2416,7 +2416,7 @@ function Copy-RedactedTextFile([string]$source, [string]$destination) {
     $raw = Get-Content -LiteralPath $source -Raw -Encoding UTF8
     [System.IO.File]::WriteAllText($destination, (Redact-SensitiveText $raw), $script:Utf8NoBom)
   } catch {
-    try { Copy-Item -LiteralPath $source -Destination $destination -Force -ErrorAction SilentlyContinue } catch {}
+    # Never fall back to copying unredacted input.
   }
 }
 

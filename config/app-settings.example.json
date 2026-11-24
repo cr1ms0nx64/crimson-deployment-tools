@@ -1,0 +1,10 @@
+{
+  "autoHealthCheck": true,
+  "autoCollapseLog": true,
+  "autoHealthAfterDeploy": true,
+  "autoConfigBackupAfterDeploy": false,
+  "keepHistoryDays": 180,
+  "keepBackupCount": 10,
+  "premiumGlow": true,
+  "backupFolder": ""
+}

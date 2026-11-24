@@ -1,33 +1,22 @@
-# Crimson Deploy Tool Update Pakete
+# Update-Pakete
 
-1.0.0 Stable nutzt Semantic Versioning.
-Config, Logs und Backups bleiben bei Updates erhalten.
-
-# Crimson Update Pakete
-
-Ab v22 kann die App über ein Update Paket gepatcht werden.
-
-Ablauf:
-1. Update Paket als ZIP herunterladen.
-2. App öffnen.
-3. Links unten App Update verwenden.
-4. Update Paket wählen.
-5. Installieren und neu starten klicken.
-
-Struktur eines gültigen Update Pakets:
+Nach `build.ps1` erstellt `tools/Create-UpdatePackage.ps1` ein ZIP mit dieser Struktur:
 
 ```text
 update.json
 app/
+  update.json
+  Crimson Deploy Tool.exe
   Crimson Native Deployer.exe
   Crimson Updater.exe
   assets/
-  runtime/
   src-wpf/
   src-updater/
-  config/
+  tools/
 ```
 
-`config/servers.json`, `logs/` und `backups/` werden beim Patchen geschützt und nicht überschrieben.
+Das Manifest enthält Version, benötigte Updater-Version, Neustartdatei und die zu erhaltenden Pfade. Die Paketierung bricht bei fehlenden Pflichtdateien ab und überschreibt kein vorhandenes ZIP.
 
-Bei jedem Update wird automatisch ein Backup unter `backups/app-backup-YYYYMMDD-HHMMSS` erstellt.
+Persönliche Serverprofile, App-Einstellungen, Deployment-/Gesundheitszustand, `logs/`, `backups/` und `runtime/` werden nicht verpackt. Der Updater erhält die im Manifest angegebenen lokalen Daten. Er legt beim Anwenden eines Updates selbst eine lokale Anwendungssicherung an; die Paketierung startet weder Updater noch Deployment.
+
+In der App **App Update → Paket wählen → Installieren und neu starten** verwenden. Nur vertrauenswürdige Pakete installieren: Format- und Versionsprüfung sind keine Signaturprüfung.

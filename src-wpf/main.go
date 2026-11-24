@@ -91,8 +91,10 @@ func main() {
 	}
 
 	debugCmd := filepath.Join(root, "Start-Debug.cmd")
-	debugBody := fmt.Sprintf("@echo off\r\nset CRIMSON_DEPLOYER_ROOT=%s\r\necho Starte Crimson Deploy Tool Debug...\r\n\"%s\" -NoLogo -NoProfile -ExecutionPolicy Bypass -STA -File \"%s\"\r\necho.\r\necho Exit Code: %%ERRORLEVEL%%\r\npause\r\n", root, findPowerShell(), scriptPath)
-	_ = os.WriteFile(debugCmd, []byte(debugBody), 0644)
+	debugBody := "@echo off\r\nset \"CRIMSON_DEPLOYER_ROOT=%~dp0\"\r\nset \"CRIMSON_SCRIPT=%~dp0src-wpf\\app.ps1\"\r\nif not exist \"%CRIMSON_SCRIPT%\" set \"CRIMSON_SCRIPT=%~dp0runtime\\crimson-deployer-wpf-1.0.1.ps1\"\r\necho Starte Crimson Deploy Tool Debug...\r\n\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoLogo -NoProfile -ExecutionPolicy Bypass -STA -File \"%CRIMSON_SCRIPT%\"\r\necho.\r\necho Exit Code: %ERRORLEVEL%\r\npause\r\n"
+	if _, statErr := os.Stat(debugCmd); os.IsNotExist(statErr) {
+		_ = os.WriteFile(debugCmd, []byte(debugBody), 0644)
+	}
 
 	ps := findPowerShell()
 	writeLog(wrapperLog, "PowerShell: "+ps, "Script: "+scriptPath)
