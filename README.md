@@ -2,6 +2,8 @@
 
 Windows-Werkzeug für SSH-basierte Deployments der Hub- und ACP-Anwendungen. Die Oberfläche nutzt **PowerShell/WPF**; Launcher und lokaler App-Updater sind in **Go** geschrieben.
 
+![Crimson Deployment Tool](docs/deployment-tool.png)
+
 ## Funktionen
 
 - Serverprofile, Verbindungsprüfung und Deployment-Preflight.
@@ -21,6 +23,16 @@ Server im Dialog anlegen oder `config/servers.example.json` als Vorlage für `co
 
 App-Einstellungen entstehen beim ersten Start lokal; `config/app-settings.example.json` dokumentiert die Standardwerte.
 
+## Programmpaket
+
+```powershell
+.\package.ps1
+```
+
+Das Paket unter `dist/Deployment` enthält nur den Starter `Crimson Deploy Tool.exe` und `app/`. Dort liegen Ressourcen, Updater sowie die lokal erzeugten Konfigurationen, Logs und Laufzeitdateien. Relative SSH-Schlüsselpfade beziehen sich weiterhin auf den Hauptordner. Für Updates die App schließen und das vollständige Paket verwenden; persönliche Konfigurationen erhalten.
+
+Bei der Umstellung bestehender Installationen bleiben bereits vorhandene Backups an ihrem bisherigen Ort. Ein vorhandener Quell-Arbeitsstand kann separat unter `source/` liegen; beide Ordner lassen sich im Explorer ausblenden.
+
 ## Bauen
 
 Mit **Go ab 1.23**:
@@ -34,12 +46,22 @@ Erzeugt `Crimson Deploy Tool.exe`, den kompatiblen Launcher-Namen `Crimson Nativ
 Update-Paket erstellen:
 
 ```powershell
-.\tools\Create-UpdatePackage.ps1 -Version 1.0.1
+.\tools\Create-UpdatePackage.ps1 -Version 1.0.2
 ```
 
 Details: [Update-Pakete](UPDATE_PACKAGES.md) · [Änderungen](CHANGELOG.md) · [manuelle Abnahme](TESTPLAN.md).
 
-Log- und Support-Export-Maskierung isoliert testen: `.\tests\Redaction.Tests.ps1`. Dabei werden weder Oberfläche noch SSH-Aktionen gestartet.
+Prüfungen ohne produktive SSH-Aktionen:
+
+```powershell
+.\tests\Behavior.Tests.ps1
+.\tests\Layout.Tests.ps1
+.\tests\Redaction.Tests.ps1
+Set-Location src-updater
+go test ./...
+```
+
+Die WPF-Layoutprüfung benötigt Windows PowerShell mit `-STA`. Sie lädt das echte XAML und prüft die Pill-Geometrie ohne Serververbindungen.
 
 ## Daten und Grenzen
 

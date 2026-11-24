@@ -1,22 +1,23 @@
 # Update-Pakete
 
-Nach `build.ps1` erstellt `tools/Create-UpdatePackage.ps1` ein ZIP mit dieser Struktur:
+Nach `build.ps1` erzeugt `tools/Create-UpdatePackage.ps1 -Version 1.0.2` ein ZIP:
 
 ```text
 update.json
 app/
-  update.json
   Crimson Deploy Tool.exe
-  Crimson Native Deployer.exe
-  Crimson Updater.exe
-  assets/
-  src-wpf/
-  src-updater/
-  tools/
+  app/
+    layout.json
+    update.json
+    Crimson Updater.exe
+    assets/
+    config/*.example.json
 ```
 
-Das Manifest enthält Version, benötigte Updater-Version, Neustartdatei und die zu erhaltenden Pfade. Die Paketierung bricht bei fehlenden Pflichtdateien ab und überschreibt kein vorhandenes ZIP.
+Die äußere Ebene `app/` ist der Paketinhalt für den Installationsordner; der innere Ordner enthält die Laufzeitdateien. Version und Manifest müssen zum gebauten Programm passen.
 
-Persönliche Serverprofile, App-Einstellungen, Deployment-/Gesundheitszustand, `logs/`, `backups/` und `runtime/` werden nicht verpackt. Der Updater erhält die im Manifest angegebenen lokalen Daten. Er legt beim Anwenden eines Updates selbst eine lokale Anwendungssicherung an; die Paketierung startet weder Updater noch Deployment.
+Das neue Layout benötigt **Updater 3**. Ältere Installationen einmalig manuell auf das vollständige Programmpaket umstellen. Der normale Updateweg prüft Layout, Mindestversion, doppelte Dateipfade und die enthaltene Neustartdatei. Persönliche Profile, Einstellungen, Zustand, Logs und Backups sind geschützt und werden nicht in Pakete aufgenommen.
 
-In der App **App Update → Paket wählen → Installieren und neu starten** verwenden. Nur vertrauenswürdige Pakete installieren: Format- und Versionsprüfung sind keine Signaturprüfung.
+Die Anwendung ersetzt ihre gerade laufende Updater-EXE nicht selbst. Änderungen am Updater über das vollständige Programmpaket bei geschlossener App übernehmen.
+
+Die Paketierung startet weder Updater noch Deployment und erstellt keine Sicherungen. Der bestehende Updater legt beim tatsächlichen Installieren weiterhin eine Anwendungssicherung an. Format- und Versionsprüfung ersetzen keine Signaturprüfung.

@@ -1,5 +1,13 @@
 # Änderungen
 
+## 1.0.2
+
+- Aufgeräumtes Programmpaket mit separatem Laufzeitordner.
+- Fortschritts-Pills korrigiert; SSH-Prüfung unter Windows PowerShell repariert.
+- Windows-Argumente korrekt maskiert; Abbrechen ohne ungültigen Stop-Job-Parameter.
+- Update-Pfade, Neustartdatei und Erhalt persönlicher Konfigurationen abgesichert.
+- Tests für WPF-Layout, Paketprüfung und Updater ergänzt.
+
 ## 1.0.1
 
 - Versionsanzeige korrigiert.

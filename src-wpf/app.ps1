@@ -29,8 +29,10 @@ $script:Root = $env:CRIMSON_DEPLOYER_ROOT
 if ([string]::IsNullOrWhiteSpace($script:Root)) {
   $script:Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 }
-$script:ConfigPath = Join-Path $script:Root 'config\servers.json'
-$script:LogDir = Join-Path $script:Root 'logs'
+$script:AppRoot = $env:CRIMSON_DEPLOYER_APP_ROOT
+if ([string]::IsNullOrWhiteSpace($script:AppRoot)) { $script:AppRoot = $script:Root }
+$script:ConfigPath = Join-Path $script:AppRoot 'config\servers.json'
+$script:LogDir = Join-Path $script:AppRoot 'logs'
 New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
 $script:LogFile = Join-Path $script:LogDir ('crimson-deployer-wpf-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
 
@@ -63,14 +65,14 @@ $script:IsRunning = $false
 $script:SelectedUpdatePackage = ''
 $script:SelectedUpdateManifest = $null
 $script:UpdateResultFile = Join-Path $script:LogDir 'last-update-result.log'
-$script:AppVersion = '1.0.1'
+$script:AppVersion = '1.0.2'
 $script:HistoryFile = Join-Path $script:LogDir 'deploy-history.json'
 $script:DeployStateFile = Join-Path $script:LogDir 'deploy-state.json'
-$script:DeployStateFileConfig = Join-Path (Join-Path $script:Root 'config') 'deploy-state.json'
-$script:SettingsFile = Join-Path (Join-Path $script:Root 'config') 'app-settings.json'
+$script:DeployStateFileConfig = Join-Path (Join-Path $script:AppRoot 'config') 'deploy-state.json'
+$script:SettingsFile = Join-Path (Join-Path $script:AppRoot 'config') 'app-settings.json'
 $script:AppSettings = $null
 $script:ServerHealth = @{}
-$script:ServerHealthFile = Join-Path (Join-Path $script:Root 'config') 'server-health.json'
+$script:ServerHealthFile = Join-Path (Join-Path $script:AppRoot 'config') 'server-health.json'
 $script:HealthJob = $null
 $script:HealthTimer = $null
 $script:CurrentAction = ''
@@ -88,10 +90,10 @@ $script:ToastTimer = $null
 
 function Remove-LegacyRuntimeArtifacts() {
   try {
-    $runtimeDir = Join-Path $script:Root 'runtime'
+    $runtimeDir = Join-Path $script:AppRoot 'runtime'
     if (Test-Path -LiteralPath $runtimeDir) {
       Get-ChildItem -LiteralPath $runtimeDir -Filter 'crimson-deployer-wpf-*.ps1' -File -ErrorAction SilentlyContinue | ForEach-Object {
-        if ($_.Name -ne 'crimson-deployer-wpf-1.0.1.ps1') { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+        if ($_.Name -ne ('crimson-deployer-wpf-' + $script:AppVersion + '.ps1')) { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
       }
       Get-ChildItem -LiteralPath $runtimeDir -Filter 'crimson-deployer-wpf-v*.ps1' -File -ErrorAction SilentlyContinue | ForEach-Object {
         Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
@@ -524,12 +526,12 @@ Remove-LegacyRuntimeArtifacts
                     </Grid>
                     <ProgressBar x:Name="StepProgress" Minimum="0" Maximum="100" Value="0" Margin="0,0,0,13"/>
                     <UniformGrid Columns="6">
-                      <Border x:Name="StageZip" CornerRadius="20" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="ZIP" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
-                      <Border x:Name="StageCheck" CornerRadius="20" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="CHECK" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
-                      <Border x:Name="StageUpload" CornerRadius="20" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="UPLOAD" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
-                      <Border x:Name="StageBuild" CornerRadius="20" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="BUILD" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
-                      <Border x:Name="StageHealth" CornerRadius="20" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="HEALTH" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
-                      <Border x:Name="StageDone" CornerRadius="20" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="DONE" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
+                      <Border x:Name="StageZip" CornerRadius="11" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="ZIP" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
+                      <Border x:Name="StageCheck" CornerRadius="11" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="CHECK" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
+                      <Border x:Name="StageUpload" CornerRadius="11" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="UPLOAD" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
+                      <Border x:Name="StageBuild" CornerRadius="11" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="BUILD" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
+                      <Border x:Name="StageHealth" CornerRadius="11" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5" Margin="0,0,6,0"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="HEALTH" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
+                      <Border x:Name="StageDone" CornerRadius="11" Background="#111E36" BorderBrush="#0D22D3EE" BorderThickness="1" Padding="12,5"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Ellipse Width="5" Height="5" Fill="#4A5E7A" Margin="0,0,5,0" VerticalAlignment="Center"/><TextBlock Text="DONE" Foreground="#4A5E7A" FontFamily="JetBrains Mono, Cascadia Mono, Consolas" FontSize="9.5" FontWeight="SemiBold"/></StackPanel></Border>
                     </UniformGrid>
                   </StackPanel>
                 </Border>
@@ -1435,8 +1437,8 @@ function Set-ZipFile([string]$path) {
 function Get-CrimsonAppIconSource() {
   try {
     if ($script:AppIconSource) { return $script:AppIconSource }
-    $ico = Join-Path $script:Root 'assets\app-icon.ico'
-    $png = Join-Path $script:Root 'assets\app-icon.png'
+    $ico = Join-Path $script:AppRoot 'assets\app-icon.ico'
+    $png = Join-Path $script:AppRoot 'assets\app-icon.png'
     if (Test-Path -LiteralPath $ico) {
       $uri = [System.Uri]::new($ico, [System.UriKind]::Absolute)
       $decoder = [Windows.Media.Imaging.IconBitmapDecoder]::new(
@@ -1512,7 +1514,7 @@ function Load-AppIcon() {
 }
 
 function Load-Logo() {
-  $logo = Join-Path $script:Root 'assets\crimson-wordmark.png'
+  $logo = Join-Path $script:AppRoot 'assets\crimson-wordmark.png'
   if (Test-Path -LiteralPath $logo) {
     $uri = New-Object System.Uri($logo)
     $bmp = New-Object Windows.Media.Imaging.BitmapImage
@@ -2363,6 +2365,16 @@ function Show-HistoryWindow() {
   } catch { Add-UiLog ('FEHLER: Deploy Verlauf konnte nicht geöffnet werden: ' + $_.Exception.Message) }
 }
 
+function Test-SafeArchivePath([string]$name) {
+  $value = ($name -replace '\\','/').TrimEnd('/')
+  if ([string]::IsNullOrWhiteSpace($value) -or $value.StartsWith('/') -or $value.Contains(':') -or $value.Contains([char]0)) { return $false }
+  foreach ($part in ($value -split '/')) {
+    if ([string]::IsNullOrEmpty($part) -or $part -eq '.' -or $part -eq '..' -or $part.TrimEnd(' ','.') -ne $part) { return $false }
+    if (($part -split '\.')[0] -match '^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$') { return $false }
+  }
+  return $true
+}
+
 function Validate-ZipPackage([string]$path, [string]$expectedKind) {
   if ([string]::IsNullOrWhiteSpace($path)) { throw 'Keine ZIP gewählt.' }
   if (-not (Test-Path -LiteralPath $path)) { throw "ZIP nicht gefunden: $path" }
@@ -2379,7 +2391,7 @@ function Validate-ZipPackage([string]$path, [string]$expectedKind) {
     if ($zip.Entries.Count -eq 0) { throw 'ZIP ist leer.' }
     $names = @($zip.Entries | ForEach-Object { ($_.FullName -replace '\\','/') })
     foreach ($n in $names) {
-      if ($n.StartsWith('/') -or $n -match '^[A-Za-z]:/' -or $n -match '(^|/)\.\.(/|$)') { throw "Unsicherer Pfad in ZIP: $n" }
+      if (-not (Test-SafeArchivePath $n)) { throw "Unsicherer Pfad in ZIP: $n" }
     }
     if ($zipKind -eq 'hub') {
       if (-not ($names -contains 'package.json')) { throw 'Hub ZIP ungültig: package.json fehlt im ZIP Root.' }
@@ -3072,13 +3084,13 @@ function Test-CrimsonSshOnline($srv, [int]$timeoutMs) {
     if ([string]::IsNullOrWhiteSpace($hostName)) { return $false }
     $port = if ($srv.PSObject.Properties.Name -contains 'port' -and $srv.port) { [int]$srv.port } else { 22 }
     $user = if ($srv.PSObject.Properties.Name -contains 'username' -and $srv.username) { [string]$srv.username } else { 'root' }
-    $key = Resolve-LocalPath ([string]$srv.privateKeyPath)
+    $key = Resolve-ServerKeyPath $srv
     if ([string]::IsNullOrWhiteSpace($key) -or -not (Test-Path -LiteralPath $key)) { return $false }
     $remote = "${user}@${hostName}"
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName = $sshCmd.Source
     $args = @('-T','-p',[string]$port,'-i',$key,'-o','BatchMode=yes','-o','PasswordAuthentication=no','-o','NumberOfPasswordPrompts=0','-o','ConnectTimeout=10','-o','ConnectionAttempts=1','-o','ServerAliveInterval=5','-o','ServerAliveCountMax=1','-o','StrictHostKeyChecking=no','-o','LogLevel=ERROR',$remote,'exit 0')
-    foreach ($a in $args) { [void]$psi.ArgumentList.Add([string]$a) }
+    $psi.Arguments = (($args | ForEach-Object { Quote-ProcessArg ([string]$_) }) -join ' ')
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
@@ -3571,7 +3583,12 @@ function Start-RemoteAction([string]$action, [string]$remoteScript) {
     $ErrorActionPreference='Stop'
     $enc=[System.Text.UTF8Encoding]::new($false)
     function JobLog([string]$msg){ if($null -eq $msg){return}; $share=[System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete; $fs=[System.IO.File]::Open($jobLog,[System.IO.FileMode]::OpenOrCreate,[System.IO.FileAccess]::Write,$share); try{ [void]$fs.Seek(0,[System.IO.SeekOrigin]::End); $b=$enc.GetBytes(($msg -replace "`r",'')+[Environment]::NewLine); $fs.Write($b,0,$b.Length); $fs.Flush() } finally { $fs.Dispose() } }
-    function Q([string]$s){ return '"' + ($s -replace '"','\"') + '"' }
+    function Q([string]$arg) {
+  if ($null -eq $arg) { return '""' }
+  $escaped = [regex]::Replace($arg, '(\\*)"', '$1$1\"')
+  $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+  return '"' + $escaped + '"'
+}
     function ResolveKey([string]$path,[string]$root){ if([string]::IsNullOrWhiteSpace($path)){return ''}; if($path.StartsWith('~')){return $path.Replace('~',[Environment]::GetFolderPath('UserProfile'))}; if([IO.Path]::IsPathRooted($path)){return $path}; return Join-Path $root $path }
     function TestTcp([string]$hostName,[int]$port,[int]$timeoutMs){ JobLog "TCP Test startet: ${hostName}:${port}"; $client=New-Object System.Net.Sockets.TcpClient; try{$async=$client.BeginConnect($hostName,$port,$null,$null); if(-not $async.AsyncWaitHandle.WaitOne($timeoutMs,$false)){ try { $client.Close() } catch {}; JobLog "WARNUNG: TCP Test ohne Antwort nach $timeoutMs ms auf ${hostName}:${port}. SSH/SCP wird trotzdem versucht."; return $false }; $client.EndConnect($async); JobLog "TCP Test erfolgreich: ${hostName}:${port} erreichbar"; return $true} catch { JobLog ("WARNUNG: TCP Test fehlgeschlagen: " + $_.Exception.Message + ". SSH/SCP wird trotzdem versucht."); return $false } finally { try{$client.Close()}catch{} } }
     function InvokeProc([string]$file,[string[]]$arguments,[string]$stdinText,[int]$timeoutSeconds){ JobLog ("> " + $file + " " + (($arguments|ForEach-Object{Q $_}) -join ' ')); if($timeoutSeconds -gt 0){JobLog "Maximale Laufzeit: ${timeoutSeconds}s"}; $psi=New-Object System.Diagnostics.ProcessStartInfo; $psi.FileName=$file; $psi.Arguments=(($arguments|ForEach-Object{Q $_}) -join ' '); $psi.RedirectStandardOutput=$true; $psi.RedirectStandardError=$true; $psi.RedirectStandardInput=(-not [string]::IsNullOrEmpty($stdinText)); $psi.StandardOutputEncoding=$enc; $psi.StandardErrorEncoding=$enc; $psi.UseShellExecute=$false; $psi.CreateNoWindow=$true; $p=New-Object System.Diagnostics.Process; $p.StartInfo=$psi; [void]$p.Start(); $out=$p.StandardOutput.ReadToEndAsync(); $err=$p.StandardError.ReadToEndAsync(); if(-not [string]::IsNullOrEmpty($stdinText)){ $p.StandardInput.Write($stdinText); $p.StandardInput.Close() }; $start=Get-Date; $beat=Get-Date; while(-not $p.HasExited){ Start-Sleep -Milliseconds 350; $elapsed=[int]((Get-Date)-$start).TotalSeconds; if(((Get-Date)-$beat).TotalSeconds -ge 6){JobLog "$file läuft seit ${elapsed}s ..."; $beat=Get-Date}; if($timeoutSeconds -gt 0 -and $elapsed -ge $timeoutSeconds){try{$p.Kill()}catch{}; throw "$file Timeout nach ${timeoutSeconds}s. Prozess wurde beendet."}}; $p.WaitForExit(); $stdout=[string]$out.Result; $stderr=[string]$err.Result; if($stdout){ foreach($l in ($stdout -split "`r?`n")){ if($l){JobLog $l} } }; if($stderr){ foreach($l in ($stderr -split "`r?`n")){ if($l){JobLog ('STDERR: '+$l)} } }; if($p.ExitCode -ne 0){ throw "$file Exit Code: $($p.ExitCode)" } }
@@ -3625,7 +3642,7 @@ function Start-Rollback() {
 
 function Stop-CurrentJob() {
   if ($script:DeployJob -and $script:DeployJob.State -eq 'Running') {
-    try { Stop-Job -Job $script:DeployJob -Force -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Job -Job $script:DeployJob -ErrorAction SilentlyContinue } catch {}
     Add-UiLog 'Aktion wurde abgebrochen. Prüfe den Server bei laufendem SSH/SCP Prozess sicherheitshalber manuell.'
     Add-HistoryRecord $script:CurrentAction 'Abgebrochen' 'Manuell abgebrochen'
     Set-Status 'Abgebrochen' 'error'
@@ -3644,17 +3661,27 @@ function Read-UpdatePackageManifest([string]$path) {
     $manifestEntry = $zip.Entries | Where-Object { $_.FullName -eq 'update.json' } | Select-Object -First 1
     if ($null -eq $manifestEntry) { throw 'update.json fehlt im Update Paket.' }
     $hasApp = $false
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    [long]$total = 0
     foreach ($entry in $zip.Entries) {
       $name = ($entry.FullName -replace '\\','/')
-      if ($name.StartsWith('/') -or $name -match '^[A-Za-z]:/' -or $name -match '(^|/)\.\.(/|$)') { throw "Unsicherer Pfad im Update Paket: $name" }
+      if (-not (Test-SafeArchivePath $name)) { throw "Unsicherer Pfad im Update Paket: $name" }
+      if (-not $seen.Add($name.TrimEnd('/'))) { throw 'Doppelter Dateipfad im Update Paket.' }
+      if ((($entry.ExternalAttributes -shr 16) -band 0xF000) -eq 0xA000) { throw 'Symbolische Links sind im Update Paket nicht erlaubt.' }
+      $total += $entry.Length
+      if ($seen.Count -gt 10000 -or $total -gt 2GB) { throw 'Update Paket überschreitet die Größenbegrenzung.' }
       if ($name.StartsWith('app/') -and -not $name.EndsWith('/')) { $hasApp = $true }
     }
     if (-not $hasApp) { throw 'Der app/ Ordner fehlt im Update Paket.' }
+    if ($manifestEntry.Length -gt 1MB) { throw 'update.json ist zu groß.' }
     $reader = [System.IO.StreamReader]::new($manifestEntry.Open(), $script:Utf8NoBom, $true)
     try { $json = $reader.ReadToEnd() } finally { $reader.Dispose() }
     $manifest = $json | ConvertFrom-Json
     if ([string]::IsNullOrWhiteSpace([string]$manifest.version)) { throw 'update.json enthält keine version.' }
     if ([string]::IsNullOrWhiteSpace([string]$manifest.restart)) { throw 'update.json enthält keinen restart Eintrag.' }
+    if ([string]$manifest.restart -notin @('Crimson Deploy Tool.exe','Crimson Native Deployer.exe') -or -not $seen.Contains('app/' + [string]$manifest.restart)) { throw 'Neustartdatei fehlt oder ist ungültig.' }
+    if ($manifest.PSObject.Properties.Name -contains 'minUpdaterVersion' -and [int]$manifest.minUpdaterVersion -gt 3) { throw 'Ein neuerer Updater wird benötigt.' }
+    if ($script:AppRoot -ne $script:Root -and (-not ($manifest.PSObject.Properties.Name -contains 'layoutVersion') -or [int]$manifest.layoutVersion -ne 2)) { throw 'Update Paket verwendet ein inkompatibles Ordnerlayout.' }
     return $manifest
   } finally {
     if ($null -ne $zip) { $zip.Dispose() }
@@ -3711,14 +3738,16 @@ function Open-UpdateDialog() {
 
 function Quote-ProcessArg([string]$arg) {
   if ($null -eq $arg) { return '""' }
-  return '"' + ($arg -replace '"','\"') + '"'
+  $escaped = [regex]::Replace($arg, '(\\*)"', '$1$1\"')
+  $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+  return '"' + $escaped + '"'
 }
 
 function Install-UpdatePackage() {
   if ($script:IsRunning) { Add-UiLog 'FEHLER: Während eines Deploys kann kein App Update installiert werden.'; return }
   if ([string]::IsNullOrWhiteSpace($script:SelectedUpdatePackage)) { Add-UiLog 'FEHLER: Kein Update Paket gewählt.'; return }
   try { $manifestCheck = Read-UpdatePackageManifest $script:SelectedUpdatePackage; if ((Compare-CrimsonVersion ([string]$manifestCheck.version) $script:AppVersion) -le 0) { Add-UiLog 'FEHLER: Update Paket ist nicht neuer als die installierte Version.'; Show-CrimsonToast 'Update blockiert' 'Paket ist nicht neuer als installiert.' 'warn'; return } } catch { Add-UiLog ('FEHLER: Update Paket ungültig: ' + $_.Exception.Message); Show-CrimsonToast 'Update Fehler' $_.Exception.Message 'error'; return }
-  $updater = Join-Path $script:Root 'Crimson Updater.exe'
+  $updater = Join-Path $script:AppRoot 'Crimson Updater.exe'
   if (-not (Test-Path -LiteralPath $updater)) { Add-UiLog "FEHLER: Crimson Updater.exe fehlt: $updater"; Set-Status 'Updater fehlt' 'error'; return }
   Add-UiLog 'Update wird vorbereitet. Die App schließt sich gleich und startet danach neu.'; Show-CrimsonToast 'Update startet' 'Die App wird gleich geschlossen und vom Updater neu gestartet.' 'info'
   Set-Status 'Update läuft' 'running'
@@ -3817,7 +3846,12 @@ try {
         if ($null -ne $fs) { $fs.Dispose() }
       }
     }
-    function Q([string]$s) { return '"' + ($s -replace '"','\"') + '"' }
+    function Q([string]$arg) {
+  if ($null -eq $arg) { return '""' }
+  $escaped = [regex]::Replace($arg, '(\\*)"', '$1$1\"')
+  $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+  return '"' + $escaped + '"'
+}
     function Normalize-DeployKind($value) {
       try {
         foreach ($item in @($value)) {
@@ -4060,7 +4094,7 @@ $script:Window.Add_Drop({
 $script:DropZone.Add_MouseLeftButtonUp({ Open-ZipDialog })
 $script:Window.Add_Closing({
   if ($script:DeployJob -and $script:DeployJob.State -eq 'Running') {
-    try { Stop-Job -Job $script:DeployJob -Force -ErrorAction SilentlyContinue } catch {}
+    try { Stop-Job -Job $script:DeployJob -ErrorAction SilentlyContinue } catch {}
   }
 })
 

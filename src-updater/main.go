@@ -17,7 +17,7 @@ import (
 	"unsafe"
 )
 
-const updaterVersion = 2
+const updaterVersion = 3
 
 const (
 	synchronize = 0x00100000
@@ -29,6 +29,7 @@ var resultLog string
 var updaterLog string
 
 type Manifest struct {
+	LayoutVersion     int      `json:"layoutVersion"`
 	Name              string   `json:"name"`
 	Version           string   `json:"version"`
 	Build             string   `json:"build"`
@@ -89,20 +90,34 @@ func cleanSlash(p string) string {
 }
 
 func isUnsafeZipPath(name string) bool {
-	n := cleanSlash(name)
-	if n == "" || strings.HasPrefix(n, "/") || strings.Contains(n, "\x00") {
+	n := strings.TrimSuffix(cleanSlash(name), "/")
+	if n == "" || strings.HasPrefix(n, "/") || strings.ContainsAny(n, ":\x00") {
 		return true
 	}
-	if len(n) >= 3 && ((n[1] == ':' && n[2] == '/') || (n[1] == ':' && n[2] == '\\')) {
-		return true
-	}
-	parts := strings.Split(n, "/")
-	for _, part := range parts {
-		if part == ".." {
+	for _, part := range strings.Split(n, "/") {
+		if part == "" || part == "." || part == ".." || strings.TrimRight(part, " .") != part {
+			return true
+		}
+		stem := strings.ToUpper(strings.SplitN(part, ".", 2)[0])
+		if stem == "CON" || stem == "PRN" || stem == "AUX" || stem == "NUL" {
+			return true
+		}
+		if len(stem) == 4 && (strings.HasPrefix(stem, "COM") || strings.HasPrefix(stem, "LPT")) && stem[3] >= '1' && stem[3] <= '9' {
 			return true
 		}
 	}
 	return false
+}
+
+func validRestart(name string) bool {
+	return name == "Crimson Deploy Tool.exe" || name == "Crimson Native Deployer.exe"
+}
+
+func dataRoot(root string) string {
+	if _, err := os.Stat(filepath.Join(root, "app", "layout.json")); err == nil {
+		return filepath.Join(root, "app")
+	}
+	return root
 }
 
 func readManifest(zipPath string) (Manifest, error) {
@@ -113,10 +128,21 @@ func readManifest(zipPath string) (Manifest, error) {
 	defer zr.Close()
 	var manifest Manifest
 	var foundManifest, foundApp bool
+	seen := make(map[string]bool)
+	var total uint64
 	for _, f := range zr.File {
 		name := cleanSlash(f.Name)
-		if isUnsafeZipPath(name) {
+		if isUnsafeZipPath(name) || f.Mode()&os.ModeSymlink != 0 {
 			return Manifest{}, fmt.Errorf("unsicherer Pfad im Update Paket: %s", name)
+		}
+		key := strings.ToLower(strings.TrimSuffix(name, "/"))
+		if seen[key] {
+			return Manifest{}, errors.New("doppelter Dateipfad im Update Paket")
+		}
+		seen[key] = true
+		total += f.UncompressedSize64
+		if len(seen) > 10000 || total > 2*1024*1024*1024 {
+			return Manifest{}, errors.New("Update Paket überschreitet die Größenbegrenzung")
 		}
 		if name == "update.json" {
 			foundManifest = true
@@ -124,10 +150,13 @@ func readManifest(zipPath string) (Manifest, error) {
 			if err != nil {
 				return Manifest{}, err
 			}
-			data, err := io.ReadAll(rc)
+			data, err := io.ReadAll(io.LimitReader(rc, 1024*1024+1))
 			_ = rc.Close()
 			if err != nil {
 				return Manifest{}, err
+			}
+			if len(data) > 1024*1024 {
+				return Manifest{}, errors.New("update.json ist zu groß")
 			}
 			if err := json.Unmarshal(data, &manifest); err != nil {
 				return Manifest{}, err
@@ -146,8 +175,8 @@ func readManifest(zipPath string) (Manifest, error) {
 	if manifest.Version == "" {
 		return Manifest{}, errors.New("version fehlt in update.json")
 	}
-	if manifest.Restart == "" {
-		return Manifest{}, errors.New("restart fehlt in update.json")
+	if !validRestart(manifest.Restart) || !seen[strings.ToLower("app/"+manifest.Restart)] {
+		return Manifest{}, errors.New("restart muss auf einen enthaltenen Programmstarter zeigen")
 	}
 	if manifest.MinUpdaterVersion > updaterVersion {
 		return Manifest{}, fmt.Errorf("Updater ist zu alt. Benötigt: %d, vorhanden: %d", manifest.MinUpdaterVersion, updaterVersion)
@@ -209,11 +238,11 @@ func extractZipApp(zipPath, dest string) error {
 }
 
 func shouldPreserve(rel string, preserve []string) bool {
-	r := strings.Trim(cleanSlash(rel), "/")
-	defaults := []string{"config/servers.json", "logs", "logs/", "backups", "backups/"}
+	r := strings.ToLower(strings.Trim(cleanSlash(rel), "/"))
+	defaults := []string{"config/servers.json", "config/app-settings.json", "config/deploy-state.json", "config/server-health.json", "logs/", "backups/", "app/config/servers.json", "app/config/app-settings.json", "app/config/deploy-state.json", "app/config/server-health.json", "app/logs/", "app/backups/"}
 	all := append(defaults, preserve...)
 	for _, p := range all {
-		pp := strings.Trim(cleanSlash(p), "/")
+		pp := strings.ToLower(strings.Trim(cleanSlash(p), "/"))
 		if pp == "" {
 			continue
 		}
@@ -282,12 +311,12 @@ func copyTree(src, dst string, preserve []string, usePreserve bool) error {
 }
 
 func backupCurrent(root string) (string, error) {
-	backups := filepath.Join(root, "backups")
+	backups := filepath.Join(dataRoot(root), "backups")
 	if err := os.MkdirAll(backups, 0755); err != nil {
 		return "", err
 	}
 	backup := filepath.Join(backups, "app-backup-"+time.Now().Format("20060102-150405"))
-	preserve := []string{"logs/", "backups/"}
+	preserve := []string{"logs/", "backups/", "app/logs/", "app/backups/"}
 	if err := copyTree(root, backup, preserve, true); err != nil {
 		return "", err
 	}
@@ -383,16 +412,19 @@ func run() error {
 	}
 	rootAbs, _ := filepath.Abs(root)
 	root = rootAbs
-	logs := filepath.Join(root, "logs")
+	logs := filepath.Join(dataRoot(root), "logs")
 	updaterLog = filepath.Join(logs, "crimson-updater-"+time.Now().Format("20060102-150405")+".log")
 	resultLog = filepath.Join(logs, "last-update-result.log")
-	logLine("Crimson Updater v2 gestartet")
+	logLine("Crimson Updater v3 gestartet")
 	logLine("Root: %s", root)
 	logLine("Package: %s", pkg)
 
 	manifest, err := readManifest(pkg)
 	if err != nil {
 		return fmt.Errorf("Update Paket ungültig: %w", err)
+	}
+	if dataRoot(root) != root && manifest.LayoutVersion != 2 {
+		return errors.New("Update Paket verwendet ein inkompatibles Ordnerlayout")
 	}
 	logLine("Update Version: %s", manifest.Version)
 	if err := waitPID(psPID, 60*time.Second); err != nil {
@@ -426,7 +458,7 @@ func run() error {
 	logLine("Update entpackt")
 
 	updatePreserve := append([]string{}, manifest.Preserve...)
-	updatePreserve = append(updatePreserve, "Crimson Updater.exe")
+	updatePreserve = append(updatePreserve, "Crimson Updater.exe", "app/Crimson Updater.exe")
 	if err := copyTree(appTemp, root, updatePreserve, true); err != nil {
 		logLine("Kopieren fehlgeschlagen, starte Rollback: %s", err)
 		_ = restoreBackup(backup, root)

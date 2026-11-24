@@ -65,8 +65,12 @@ func main() {
 		return
 	}
 	root := filepath.Dir(exe)
-	runtimeDir := filepath.Join(root, "runtime")
-	logsDir := filepath.Join(root, "logs")
+	appRoot := root
+	if _, err := os.Stat(filepath.Join(root, "app", "layout.json")); err == nil {
+		appRoot = filepath.Join(root, "app")
+	}
+	runtimeDir := filepath.Join(appRoot, "runtime")
+	logsDir := filepath.Join(appRoot, "logs")
 	_ = os.MkdirAll(runtimeDir, 0755)
 	_ = os.MkdirAll(logsDir, 0755)
 	wrapperLog := filepath.Join(logsDir, "crimson-deployer-wrapper.log")
@@ -80,7 +84,7 @@ func main() {
 		messageBox("Crimson Deploy Tool", "Startfehler: app.ps1 konnte nicht gelesen werden. Details im logs Ordner.")
 		return
 	}
-	scriptPath := filepath.Join(runtimeDir, "crimson-deployer-wpf-1.0.1.ps1")
+	scriptPath := filepath.Join(runtimeDir, "crimson-deployer-wpf-1.0.2.ps1")
 	if len(scriptBytes) < 3 || !(scriptBytes[0] == 0xEF && scriptBytes[1] == 0xBB && scriptBytes[2] == 0xBF) {
 		scriptBytes = append([]byte{0xEF, 0xBB, 0xBF}, scriptBytes...)
 	}
@@ -90,9 +94,9 @@ func main() {
 		return
 	}
 
-	debugCmd := filepath.Join(root, "Start-Debug.cmd")
+	debugCmd := filepath.Join(appRoot, "Start-Debug.cmd")
 	debugBody := "@echo off\r\nset \"CRIMSON_DEPLOYER_ROOT=%~dp0\"\r\nset \"CRIMSON_SCRIPT=%~dp0src-wpf\\app.ps1\"\r\nif not exist \"%CRIMSON_SCRIPT%\" set \"CRIMSON_SCRIPT=%~dp0runtime\\crimson-deployer-wpf-1.0.1.ps1\"\r\necho Starte Crimson Deploy Tool Debug...\r\n\"%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoLogo -NoProfile -ExecutionPolicy Bypass -STA -File \"%CRIMSON_SCRIPT%\"\r\necho.\r\necho Exit Code: %ERRORLEVEL%\r\npause\r\n"
-	if _, statErr := os.Stat(debugCmd); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(debugCmd); appRoot == root && os.IsNotExist(statErr) {
 		_ = os.WriteFile(debugCmd, []byte(debugBody), 0644)
 	}
 
@@ -106,7 +110,7 @@ func main() {
 
 	cmd := exec.Command(ps, "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-STA", "-File", scriptPath)
 	cmd.Dir = root
-	cmd.Env = append(os.Environ(), fmt.Sprintf("CRIMSON_DEPLOYER_ROOT=%s", root), fmt.Sprintf("CRIMSON_DEPLOYER_LAUNCHER_PID=%d", os.Getpid()))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("CRIMSON_DEPLOYER_ROOT=%s", root), fmt.Sprintf("CRIMSON_DEPLOYER_APP_ROOT=%s", appRoot), fmt.Sprintf("CRIMSON_DEPLOYER_LAUNCHER_PID=%d", os.Getpid()))
 	if out != nil {
 		cmd.Stdout = out
 		cmd.Stderr = out
